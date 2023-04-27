@@ -1,0 +1,78 @@
+{
+  "about": {
+    "trial": true,
+    "author": {
+      "name": "QWQ",
+      "email": "799648922@qq.com"
+    },
+    "description": {
+      "en_US": "The source will generate random can signal inputs with a specified pattern.",
+      "zh_CN": "随机 CAN 信号将生成具有指定样式的随机输入。"
+    }
+  },
+  "dataSource": {},
+  "properties": {
+    "default": [
+      {
+        "name": "signal",
+        "default": [
+          [
+            {
+              "name": "name",
+              "default": "VehSpd",
+              "optional": false,
+              "control": "text",
+              "type": "string"
+            },
+            {
+              "name": "dataType",
+              "default": "float",
+              "optional": false,
+              "control": "text",
+              "type": "string"
+            },
+            {
+              "name": "minValuePhy",
+              "default": "0",
+              "optional": false,
+              "control": "text",
+              "type": "string"
+            },
+            {
+              "name": "maxValuePhy",
+              "default": "360",
+              "optional": false,
+              "control": "text",
+              "type": "string"
+            },
+            {
+              "name": "cyclicTime",
+              "default": "20",
+              "optional": false,
+              "control": "text",
+              "type": "int"
+            },
+            {
+              "name": "changeTime",
+              "default": "2000",
+              "optional": false,
+              "control": "text",
+              "type": "int"
+            }
+          ]
+        ],
+        "optional": false,
+        "control": "list",
+        "type": "list_object"
+      }
+    ]
+  },
+  "node": {
+    "category": "source",
+    "icon": "iconPath",
+    "label": {
+      "en_US": "CanSignal",
+      "zh_CN": "CanSignal"
+    }
+  }
+}

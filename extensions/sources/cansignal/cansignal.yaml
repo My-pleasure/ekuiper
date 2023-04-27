@@ -1,0 +1,16 @@
+default:
+  signal:
+  - name: VehSpd
+    dataType: float
+    minValuePhy: "0"
+    maxValuePhy: "360"
+    cyclicTime: 20
+    changeTime: 2000
+
+# ext:
+#   signal:
+
+# 暂不知道是啥用
+# dedup:
+#   interval: 100
+#   deduplicate: 50
