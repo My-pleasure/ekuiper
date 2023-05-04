@@ -11,8 +11,6 @@ import (
 	"github.com/lf-edge/ekuiper/pkg/cast"
 )
 
-const dedupStateKey = "input"
-
 type canSignal struct {
 	Name        string `json:"name"`
 	DataType    string `json:"dataType"`
@@ -55,69 +53,71 @@ func (s *canSignalSource) Configure(topic string, props map[string]interface{}) 
 
 func (s *canSignalSource) Open(ctx api.StreamContext, consumer chan<- api.SourceTuple, errCh chan<- error) {
 	logger := ctx.GetLogger()
-	logger.Debugf("open random source with deduplicate ")
-	s.list = make([][]byte, 0)
-	for {
-		for k, v := range s.conf.Signal {
+	s.list = make([][]byte, 100)
+	s.list[0] = []byte{}
+	for k, v := range s.conf.Signal {
+		logger.Debugf("can signal %s ready to send data, DataType: %s, MinValuePhy: %s, MaxValuePhy: %s, CyclicTime: %d, ChangeTime: %d", v.Name, v.DataType, v.MinValuePhy, v.MaxValuePhy, v.CyclicTime, v.ChangeTime)
+		// 初始化信号值
+		next, err := randomize(v.Name, v.DataType, v.MinValuePhy, v.MaxValuePhy)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		ns, err := json.Marshal(next)
+		if err != nil {
+			logger.Warnf("invalid input data %v", next)
+			return
+		}
+		s.list[k] = ns
+
+		// 如果变化时间不为 0
+		if v.ChangeTime != 0 {
 			go func() {
-				cyclicT := time.NewTicker(time.Duration(v.CyclicTime) * time.Millisecond)
-				defer cyclicT.Stop()
+				changeT := time.NewTicker(time.Duration(v.ChangeTime) * time.Millisecond)
+				defer changeT.Stop()
 
 				for {
 					select {
-					case <-cyclicT.C:
-						next := make(map[string]interface{})
-						err := json.Unmarshal(s.list[k], &next)
+					case <-changeT.C:
+						next, err := randomize(v.Name, v.DataType, v.MinValuePhy, v.MaxValuePhy)
 						if err != nil {
-							logger.Warnf("unmarshal input data failed %v", s.list[k])
+							errCh <- err
 							return
 						}
-						logger.Debugf("Send out data %v", next)
-						consumer <- api.NewDefaultSourceTuple(next, nil)
+						ns, err := json.Marshal(next)
+						if err != nil {
+							logger.Warnf("invalid input data %v", next)
+							return
+						}
+						s.list[k] = ns
 					case <-ctx.Done():
 						return
 					}
 				}
 			}()
-			if v.ChangeTime != 0 {
-				go func() {
-					changeT := time.NewTicker(time.Duration(v.ChangeTime) * time.Millisecond)
-					defer changeT.Stop()
-
-					for {
-						select {
-						case <-changeT.C:
-							next, err := randomize(v.Name, v.DataType, v.MinValuePhy, v.MaxValuePhy)
-							if err != nil {
-								errCh <- err
-								return
-							}
-							ns, err := json.Marshal(next)
-							if err != nil {
-								logger.Warnf("invalid input data %v", next)
-								return
-							}
-							s.list[k] = ns
-						case <-ctx.Done():
-							return
-						}
-					}
-				}()
-			} else {
-				next, err := randomize(v.Name, v.DataType, v.MinValuePhy, v.MaxValuePhy)
-				if err != nil {
-					errCh <- err
-					return
-				}
-				ns, err := json.Marshal(next)
-				if err != nil {
-					logger.Warnf("invalid input data %v", next)
-					return
-				}
-				s.list[k] = ns
-			}
 		}
+		// 循环发送信号值
+		go func() {
+			cyclicT := time.NewTicker(time.Duration(v.CyclicTime) * time.Millisecond)
+			defer cyclicT.Stop()
+
+			for {
+				select {
+				case <-cyclicT.C:
+					next := make(map[string]interface{})
+					err := json.Unmarshal(s.list[k], &next)
+					if err != nil {
+						logger.Warnf("unmarshal input data failed %v", s.list[k])
+					}
+					logger.Debugf("Send out data %v", next)
+					consumer <- api.NewDefaultSourceTuple(next, nil)
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
 	}
+	<-ctx.Done()
 }
 
 func randomize(name, dataType, minValuePhy, maxValuePhy string) (map[string]interface{}, error) {
